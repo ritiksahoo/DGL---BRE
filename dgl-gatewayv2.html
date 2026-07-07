@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DGL Gateway – Rules Management</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { margin: 0; font-family: 'Roboto', 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; color: #222; }
+    .header { height: 54px; background: #fff; border-bottom: 2px solid #FF9800; display: flex; align-items: center; padding: 0 32px; justify-content: space-between; font-weight: 500; position: sticky; top: 0; z-index: 10; }
+    .brand-logo { display: flex; align-items: center; }
+    .brand-logo .r { font-weight: 800; color: #FF9800; letter-spacing: .5px; margin-right: 16px; border-right: 1.5px solid #eee; padding-right: 16px; }
+    .brand-logo .fb { font-weight: 700; color: #233066; }
+    .role-switch { display: flex; gap: 4px; background: #f0f1f4; border-radius: 8px; padding: 3px; }
+    .role-switch button { border: none; background: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; transition: .15s; }
+    .role-switch button.active { background: #fff; color: #233066; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .sidebar { width: 230px; background: #172642; color: #fff; min-height: 100vh; position: fixed; top: 54px; left: 0; padding-top: 20px; font-size: 15px; user-select: none; }
+    .nav-link { display: block; padding: 14px 24px; color: #bcd0e7; text-decoration: none; cursor: pointer; font-weight: 500; transition: background .15s, color .15s; }
+    .nav-link.active, .nav-link:hover { background: #223560; color: #fff; border-left: 6px solid #FF9800; padding-left: 18px; font-weight: 600; }
+    .content { margin-left: 230px; margin-top: 54px; padding: 24px 36px 120px 36px; min-height: 90vh; background: #f9f9fb; }
+    .tab-row { display: flex; border-bottom: 2px solid #eee; margin-bottom: 30px; user-select: none; }
+    .tab-btn { padding: 14px 28px; font-weight: 500; color: #888; border: none; background: none; cursor: pointer; outline: none; border-bottom: 2px solid transparent; font-size: 16px; margin-right: 12px; transition: color .2s; }
+    .tab-btn.active { color: #FF9800; border-bottom: 2px solid #FF9800; }
+    .sub-tab-row { display: flex; justify-content: center; gap: 16px; margin-bottom: 20px; }
+    .sub-tab-btn { padding: 12px 32px; font-weight: 600; color: #666; border: 2px solid #ddd; background: #fff; cursor: pointer; outline: none; font-size: 14px; transition: all .2s; border-radius: 6px; min-width: 120px; text-align: center; }
+    .sub-tab-btn.active { color: #fff; background: #007bff; border: 2px solid #007bff; box-shadow: 0 2px 8px rgba(0,123,255,0.3); }
+    .sub-tab-btn:hover:not(.active) { background: #f8f9fa; color: #333; border-color: #007bff; }
+    .search-container { margin-bottom: 20px; display: flex; justify-content: center; }
+    .search-bar { display: flex; align-items: center; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 8px; gap: 8px; }
+    .search-bar input { border: 1px solid #ddd; border-radius: 6px; padding: 10px 16px; font-size: 14px; width: 350px; outline: none; transition: border-color 0.2s; }
+    .search-bar input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.25); }
+    .search-btn, .reset-btn { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    .search-btn { background: #28a745; color: white; } .search-btn:hover { background: #218838; }
+    .reset-btn { background: #dc3545; color: white; } .reset-btn:hover { background: #c82333; }
+    .change-request-content { display: none; } .change-request-content.active { display: block; }
+    .rules-list-table, .change-request-table { width: 100%; background: #fff; border-radius: 9px; box-shadow: 0 2px 8px rgba(16,32,75,0.09); border-collapse: collapse; margin-bottom: 28px; }
+    .rules-list-table th, .rules-list-table td, .change-request-table th, .change-request-table td { text-align: left; padding: 14px 18px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 14.8px; }
+    .rules-list-table td { vertical-align: middle; }
+    .rules-list-table th, .change-request-table th { background: #f6f7fa; font-size: 15px; font-weight: 600; user-select: none; }
+    tr.db-managed-row { background: #fbfcfd; }
+    .status-initiated { background: #007bff; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .status-approved { background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .status-rejected { background: #dc3545; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .old-value { color: #dc3545; font-weight: 500; } .new-value { color: #28a745; font-weight: 500; }
+    .cr-line { padding: 5px 0; } .cr-line:not(:last-child) { border-bottom: 1px dashed #eee; }
+    .cr-count { font-size: 11px; color: #FF9800; font-weight: 600; margin-top: 4px; }
+    .toggle-switch { position: relative; width: 46px; height: 28px; display: inline-block; vertical-align: middle; }
+    .toggle-switch input { display: none; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; transition: .3s; border-radius: 20px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 2px; bottom: 3px; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px #bbb; transition: .3s; }
+    .toggle-switch input:checked + .slider { background: #FF9800; }
+    .toggle-switch input:checked + .slider:before { left: 20px; }
+    .toggle-switch input:disabled + .slider { opacity: .55; cursor: not-allowed; }
+    .edit-btn { background: #e3e6ef; border: none; border-radius: 5px; color: #445eee; font-size: 14px; padding: 6px 16px; margin-left: 9px; cursor: pointer; transition: background .15s; user-select: none; white-space: nowrap; }
+    .edit-btn:hover { background: #dde5f0; }
+    .view-btn { background: #007bff; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: background .15s; }
+    .view-btn:hover { background: #0056b3; }
+    .db-badge { background: #eef1f6; color: #5b6b8c; padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600; display: inline-flex; gap: 5px; align-items: center; }
+    .view-btn-rule { background: #fff; border: 1px solid #c9d6f6; color: #2563EB; border-radius: 6px; padding: 6px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: .12s; }
+    .view-btn-rule:hover { background: #f2f6ff; }
+    .ro-block { margin-bottom: 16px; }
+    .ro-head { font-weight: 600; margin-bottom: 10px; color: #333; }
+    .ro-count { color: #999; font-weight: 400; }
+    .ro-note { font-size: 12px; color: #8a94a6; margin-bottom: 10px; }
+    .db-search { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 12px; font-size: 14px; box-sizing: border-box; }
+    .db-search:focus { outline: none; border-color: #FF9800; box-shadow: 0 0 0 2px #FF980033; }
+    .ro-table { width: 100%; border-collapse: collapse; border: 1px solid #eee; border-radius: 6px; overflow: hidden; }
+    .ro-table th { background: #f6f7fa; text-align: left; padding: 8px 12px; font-size: 12px; color: #666; font-weight: 600; }
+    .ro-table td { padding: 8px 12px; border-top: 1px solid #eee; font-size: 13px; }
+    .ro-card { padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 10px; }
+    .ro-card-title { font-weight: 600; margin-bottom: 8px; color: #333; }
+    .ro-chip { display: inline-block; margin: 2px 4px; padding: 4px 10px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 14px; font-size: 12px; }
+    .ro-kv { display: flex; justify-content: space-between; padding: 11px 2px; border-bottom: 1px solid #eee; }
+    .ro-kv .k { color: #666; } .ro-kv .v { font-weight: 600; color: #233066; }
+    .ro-status-en { color: #28a745; font-weight: 600; } .ro-status-dis { color: #999; font-weight: 600; }
+    .db-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
+    .footer-bar { position: fixed; left: 230px; right: 0; bottom: 0; background: #fff; padding: 16px 36px; border-top: 1px solid #eee; box-shadow: 0 -2px 12px rgba(16,32,75,0.05); display: flex; align-items: center; justify-content: flex-end; gap: 16px; z-index: 20; }
+    .footer-hint { margin-right: auto; font-size: 13px; color: #666; } .footer-hint b { color: #FF9800; }
+    .save-btn { background: #FF9800; color: #fff; font-weight: 600; padding: 12px 38px; font-size: 16px; border: none; border-radius: 8px; box-shadow: 0 3px 14px #ffb341cc; cursor: pointer; transition: background .15s; }
+    .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .toggle-status-text { margin-left: 8px; font-weight: 600; font-size: 13px; vertical-align: middle; user-select: none; display: inline-block; line-height: 28px; }
+    .toggle-status-enabled { color: #FF9800; } .toggle-status-disabled { color: #666; }
+    .modal-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,.13); display: flex; align-items: center; justify-content: center; z-index: 99; }
+    .modal { background: #fff; border-radius: 10px; min-width: 340px; max-width: 520px; padding: 30px 28px 22px 28px; box-shadow: 0 8px 48px rgba(16,32,75,0.22); text-align: center; }
+    .modal input, .modal textarea { margin-top: 8px; width: 92%; padding: 8px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 15px; resize: vertical; }
+    .modal-actions { margin-top: 22px; }
+    .modal-btn { padding: 10px 32px; font-size: 15px; border: none; border-radius: 6px; margin: 0 9px; cursor: pointer; font-weight: 600; user-select: none; transition: background-color 0.2s; }
+    .modal-btn.confirm { background: #FF9800; color: #fff; } .modal-btn.confirm:hover { background: #e67f00; }
+    .modal-btn.cancel { background: #e3e6ef; color: #444; } .modal-btn.cancel:hover { background: #c5cadb; }
+    .modal label { font-size: 14px; font-weight: 500; display: block; text-align: left; user-select: none; }
+    .review-changes { text-align: left; margin: 10px 0 16px; }
+    .review-changes .rc-title { font-size: 12px; font-weight: 700; color: #555; margin-bottom: 8px; }
+    .review-changes table { width: 100%; border-collapse: collapse; border: 1px solid #eee; border-radius: 6px; }
+    .review-changes td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .review-changes tr:last-child td { border-bottom: none; }
+    .review-maker-cmt { text-align: left; background: #f8f9fa; border: 1px solid #eee; border-radius: 6px; padding: 10px 12px; font-size: 13px; margin-bottom: 4px; }
+    .review-maker-cmt .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: #999; font-weight: 700; margin-bottom: 3px; }
+    .drawer-bg { position: fixed; top: 0; right: 0; width: 100vw; height: 100vh; background: rgba(14,30,60,0.15); z-index: 80; display: flex; justify-content: flex-end; }
+    .drawer { background: #fff; width: 440px; max-width: 94vw; height: 100vh; box-shadow: -4px 0 16px rgba(16,32,75,0.25); display: flex; flex-direction: column; }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 28px; border-bottom: 1px solid #eee; background: #f8f9fa; }
+    .drawer-close { background: none; border: none; font-size: 32px; color: #666; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background .15s; }
+    .drawer-close:hover { background: #eee; }
+    .drawer-content { flex: 1; padding: 28px; overflow-y: auto; }
+    .drawer-actions { padding: 20px 28px; border-top: 1px solid #eee; display: flex; gap: 12px; justify-content: flex-end; }
+    .drawer-actions button { padding: 10px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background .15s; }
+    .drawer-actions .save { background: #FF9800; color: #fff; } .drawer-actions .save:hover { background: #e67f00; }
+    .drawer-actions .cancel { background: #e3e6ef; color: #444; } .drawer-actions .cancel:hover { background: #c5cadb; }
+    .empty-state { text-align: center; padding: 40px 20px; color: #666; }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-state-text { font-size: 16px; margin-bottom: 8px; }
+    .empty-state-subtext { font-size: 14px; color: #999; }
+    @media (max-width: 1024px) {
+      .content { margin-left: 0; padding: 20px; }
+      .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+      .footer-bar { left: 0; }
+      .search-bar { flex-direction: column; gap: 12px; } .search-bar input { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header" role="banner">
+    <div class="brand-logo" aria-label="Partner Logos"><span class="r">RUPEEK</span><span class="fb">Federal Bank</span></div>
+    <div aria-label="Application Name"><span style="color:#FF9800;font-weight:700;font-size:16px;">DGL Gateway</span></div>
+    <div aria-label="User Info" style="display:flex; align-items:center; gap:14px;">
+      <div class="role-switch" role="group" aria-label="Role">
+        <button data-role="maker" class="active" onclick="setRole('maker')">Maker</button>
+        <button data-role="checker" onclick="setRole('checker')">Checker</button>
+      </div>
+      <span style="font-size:13px;color:#666;" title="Last login">Last Login: 2025-08-08 14:46</span>
+      <span style="color:#222; font-size:14px;">Bpm_sme</span>
+      <span id="role-label" style="font-size:12px;color:#666;">| DGL Maker</span>
+    </div>
+  </div>
+  <nav aria-label="Primary Navigation" class="sidebar">
+    <a class="nav-link" href="#" tabindex="0">Loan Requests</a>
+    <a class="nav-link" href="#" tabindex="0">Reports</a>
+    <a class="nav-link active" href="#" id="nav-rules-mgmt" tabindex="0">📋 Rules Management</a>
+  </nav>
+  <main class="content" role="main" id="main-content">
+    <div role="tablist" aria-label="Rules Management Tabs" class="tab-row">
+      <button role="tab" aria-selected="true" id="tab-ruleslist" class="tab-btn active" type="button" onclick="switchTab('rules')">Rules List</button>
+      <button role="tab" aria-selected="false" id="tab-changerequest" class="tab-btn" type="button" onclick="switchTab('changerequest')">Change Request</button>
+    </div>
+    <section id="rules-list-tab" tabindex="0" role="tabpanel" aria-labelledby="tab-ruleslist">
+      <table class="rules-list-table" aria-label="Configurable rules list">
+        <caption style="text-align:left; font-weight:600; padding:8px 16px 16px; font-size:15px; color:#555;">
+          Enable/disable rules or edit their parameters. View-only rules are maintained by IT in the database — open them to view and search current values.
+        </caption>
+        <thead><tr><th width="34%">Rule Name</th><th style="min-width:150px;">Status</th><th style="min-width:280px;">Action / Configuration</th></tr></thead>
+        <tbody id="rules-tbody"></tbody>
+      </table>
+    </section>
+    <section id="change-request-tab" tabindex="0" role="tabpanel" aria-labelledby="tab-changerequest" style="display:none;">
+      <div role="tablist" aria-label="Change Request Status Tabs" class="sub-tab-row">
+        <button role="tab" aria-selected="true" id="subtab-initiated" class="sub-tab-btn active" type="button" onclick="switchChangeRequestTab('initiated')">Initiated</button>
+        <button role="tab" aria-selected="false" id="subtab-approved" class="sub-tab-btn" type="button" onclick="switchChangeRequestTab('approved')">Approved</button>
+        <button role="tab" aria-selected="false" id="subtab-rejected" class="sub-tab-btn" type="button" onclick="switchChangeRequestTab('rejected')">Rejected</button>
+      </div>
+      <div class="search-container">
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search by Request No. / Maker Name / Checker Name" aria-label="Search change requests">
+          <button class="search-btn" onclick="performSearch()">Search</button>
+          <button class="reset-btn" onclick="resetSearch()">Reset</button>
+        </div>
+      </div>
+      <div id="initiated-tab" class="change-request-content active">
+        <table class="change-request-table"><thead><tr><th>Request ID</th><th>Maker Name</th><th>Rule(s) Changed</th><th>Old Value</th><th>New Value</th><th>Maker Comment</th><th>Checker Comment</th><th>Timestamp</th><th>Action</th></tr></thead><tbody id="initiated-tbody"></tbody></table>
+      </div>
+      <div id="approved-tab" class="change-request-content">
+        <table class="change-request-table"><thead><tr><th>Request ID</th><th>Maker Name</th><th>Rule(s) Changed</th><th>Old Value</th><th>New Value</th><th>Maker Comment</th><th>Checker Comment</th><th>Timestamp</th><th>Action</th></tr></thead><tbody id="approved-tbody"></tbody></table>
+      </div>
+      <div id="rejected-tab" class="change-request-content">
+        <table class="change-request-table"><thead><tr><th>Request ID</th><th>Maker Name</th><th>Rule(s) Changed</th><th>Old Value</th><th>New Value</th><th>Maker Comment</th><th>Checker Comment</th><th>Timestamp</th><th>Action</th></tr></thead><tbody id="rejected-tbody"></tbody></table>
+      </div>
+    </section>
+  </main>
+  <div class="footer-bar" id="footer-bar" role="region" aria-label="Save changes area">
+    <span class="footer-hint" id="footer-hint"></span>
+    <button class="save-btn" id="saveBtn" onclick="openSaveModal()" disabled>Save All Changes</button>
+  </div>
+  <div id="main-modal" class="modal-bg" style="display:none;" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3 style="color:#FF9800;">Confirm Changes</h3>
+      <p style="margin-bottom:6px;">All staged changes will be submitted as one request for approval.</p>
+      <div id="submit-summary" class="review-changes"></div>
+      <label>Comments<span style="color:red;margin-left:2px;">*</span></label>
+      <textarea id="modal-comment" rows="3" placeholder="Add your reason for changes (mandatory)" required></textarea>
+      <div class="modal-actions">
+        <button class="modal-btn confirm" onclick="confirmSave()">Confirm</button>
+        <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="comment-modal" class="modal-bg" style="display:none;" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3 style="color:#233066;">Review Request</h3>
+      <div id="review-changes" class="review-changes"></div>
+      <label>Decision comment<span style="color:red;margin-left:2px;">*</span></label>
+      <textarea id="checker-comment" rows="3" placeholder="Required for both approve and reject..."></textarea>
+      <div class="modal-actions">
+        <button class="modal-btn confirm" onclick="approveRequest()" style="background:#28a745;">Approve</button>
+        <button class="modal-btn" onclick="rejectRequest()" style="background:#dc3545;color:white;">Reject</button>
+        <button class="modal-btn cancel" onclick="closeCommentModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="edit-drawer-bg" class="drawer-bg" style="display:none;" role="dialog" aria-modal="true">
+    <div class="drawer">
+      <div class="drawer-header">
+        <h2 id="drawerTitle" style="color:#233066;">Edit Configuration</h2>
+        <button class="drawer-close" aria-label="Close drawer" onclick="closeDrawer()">&times;</button>
+      </div>
+      <div class="drawer-content" id="drawer-content"></div>
+      <div class="drawer-actions">
+        <button class="save" onclick="saveDrawerEdit()">Save</button>
+        <button class="cancel" onclick="closeDrawer()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <script>
+/* ================================================================
+   STATE
+================================================================ */
+let currentUser = 'Bpm_sme';
+let userRole = 'maker';
+let currentChangeRequestTab = 'initiated';
+let changeRequests = [];
+let currentRequestId = null;
+let searchFiltered = [];
+let currentEditingRuleIndex = null;
+let baseline = [];
+let pendingChanges = [];
+
+/* ================================================================
+   SAMPLE CHANGE REQUESTS
+================================================================ */
+const sampleChangeRequests = [
+  { id:'CR001234', makerName:'Deepak Kumar', status:'initiated', timestamp:'2024-01-15 10:30:00',
+    makerComment:'Batch policy update for Q3 onboarding.', checkerComment:'',
+    changes:[
+      { rule:'Age of Customer',  oldValue:'18\u2013100 years', newValue:'21\u2013100 years' },
+      { rule:'UN Name Check',    oldValue:'Enabled',           newValue:'Disabled' },
+      { rule:'Scheme & Loan Parameters', oldValue:'LTV: Gold Loan Standard 75%', newValue:'LTV: Gold Loan Standard 78%' }
+    ]},
+  { id:'CR001235', makerName:'Riya Singh', status:'initiated', timestamp:'2024-01-15 11:45:00',
+    makerComment:'Adding Pearl as accepted jewel type.', checkerComment:'',
+    changes:[{ rule:'Jewel & Coin Parameters', oldValue:'10 jewel types, Coins: off', newValue:'11 jewel types, Coins: on' }]},
+  { id:'CR001236', makerName:'Raj K.', status:'approved', timestamp:'2024-01-14 14:20:00',
+    makerComment:'New scheme Gold Loan Express Plus added.', checkerComment:'Approved. Consistent with product roadmap.',
+    changes:[{ rule:'Scheme & Loan Parameters', oldValue:'4 schemes', newValue:'5 schemes' }]},
+  { id:'CR001237', makerName:'Anjali Arora', status:'approved', timestamp:'2024-01-14 16:30:00',
+    makerComment:'Restrict back-dating of loans.', checkerComment:'Approved. Aligns with new risk policy.',
+    changes:[{ rule:'Loan Date', oldValue:'Back:accept', newValue:'Back:reject' }]},
+  { id:'CR001238', makerName:'Nikita Goyal', status:'rejected', timestamp:'2024-01-14 09:15:00',
+    makerComment:'Temporary disable for maintenance.', checkerComment:'Rejected. PAN verification is mandatory.',
+    changes:[{ rule:'PAN Card / Form60', oldValue:'Enabled', newValue:'Disabled' }]},
+  { id:'CR001239', makerName:'Tim David', status:'rejected', timestamp:'2024-01-14 11:25:00',
+    makerComment:'Remove checks to speed onboarding.', checkerComment:'Rejected. Mandatory checks cannot be removed.',
+    changes:[
+      { rule:'Bank Name & IFSC', oldValue:'Enabled', newValue:'Disabled' },
+      { rule:'UN Name Check',    oldValue:'Enabled', newValue:'Disabled' }
+    ]}
+];
+
+/* ================================================================
+   RULES DATA
+   type: 'toggle'  -> enable/disable only
+         'drawer'  -> editable parameters drawer
+         'compound'-> full CRUD drawer (new compound type)
+         'db'      -> view-only
+================================================================ */
+const rulesData = [
+  // ---- UI toggles ----
+  { name:'Aadhar Card',         type:'toggle', enabled:true },
+  { name:'Customer Name & DoB', type:'toggle', enabled:true },
+  { name:'PAN Card / Form60',   type:'toggle', enabled:true },
+  { name:'UN Name Check',       type:'toggle', enabled:true },
+  { name:'Bank Name & IFSC',    type:'toggle', enabled:true },
+
+  // ---- UI drawers ----
+  { name:'Age of Customer', type:'drawer', enabled:true, config:{ minAge:18, maxAge:100 } },
+  { name:'Purity',          type:'drawer', enabled:true, config:{ minPurity:18, maxPurity:22 } },
+  { name:'Loan Date',       type:'drawer', enabled:true,
+    config:{ futureDate:'accept', backDate:'reject', presentDate:'accept' } },
+
+  // ---- COMPOUND 1: Scheme & Loan Parameters ----
+  { name:'Scheme & Loan Parameters', type:'compound', subtype:'schemes', enabled:true,
+    desc:'Manage schemes and their loan settings — LTV, tenures, loan amount limits, interest rates and penal charges.',
+    config:{
+      schemes:[
+        { code:'GLS001', name:'Gold Loan Standard', enabled:true,
+          ltv:75, tenures:[6,12,18,24], minAmt:5000,   maxAmt:500000,  interestRate:12,  penalCharge:2   },
+        { code:'GLP002', name:'Gold Loan Premium',  enabled:true,
+          ltv:80, tenures:[12,24,36],  minAmt:10000,  maxAmt:1000000, interestRate:10,  penalCharge:1.5 },
+        { code:'GLE003', name:'Gold Loan Express',  enabled:true,
+          ltv:70, tenures:[6,12],      minAmt:5000,   maxAmt:200000,  interestRate:14,  penalCharge:2.5 },
+        { code:'GLF004', name:'Gold Loan Flexi',    enabled:false,
+          ltv:65, tenures:[3,6,9,12],  minAmt:2000,   maxAmt:300000,  interestRate:13,  penalCharge:2.2 }
+      ]
+    }
+  },
+
+  // ---- COMPOUND 2: Jewel & Coin Parameters ----
+  { name:'Jewel & Coin Parameters', type:'compound', subtype:'jewels', enabled:true,
+    desc:'Manage accepted jewel types and toggle coin-backed loan acceptance.',
+    config:{
+      coinsAccepted: false,
+      acceptedTypes:['Chain','Bangle','Ring','Coin','Earring','Anklet','Necklace','Bracelet','Hip chain','Other items']
+    }
+  },
+
+  // ---- view-only DB rules ----
+  { name:'Active Branch', type:'db', enabled:true,
+    config:{ branches:[
+      { solId:'SOL001', name:'Mumbai Central',  locality:'Central Mumbai',  address:'123 Main St, Mumbai',         enabled:true  },
+      { solId:'SOL002', name:'Delhi Branch',    locality:'Connaught Place', address:'456 CP, New Delhi',           enabled:true  },
+      { solId:'SOL003', name:'Bangalore Tech',  locality:'Koramangala',     address:'789 Tech Park, Bangalore',    enabled:true  },
+      { solId:'SOL004', name:'Chennai Central', locality:'T Nagar',         address:'321 Anna Salai, Chennai',     enabled:false }
+    ]}
+  },
+  { name:'Per Gram Rate', type:'db', enabled:true,
+    config:{ schemes:{
+      'Gold Loan Standard':5200,'Gold Loan Premium':5300,
+      'Gold Loan Express':5100,'Gold Loan Flexi':5250
+    }}
+  }
+];
+
+/* ================================================================
+   HELPERS
+================================================================ */
+function summarizeRule(rule) {
+  if (rule.type === 'db') return null;
+  if (rule.type === 'toggle') return rule.enabled ? 'Enabled' : 'Disabled';
+  if (rule.type === 'compound' && rule.subtype === 'schemes') {
+    var en = rule.config.schemes.filter(function(s){return s.enabled;}).length;
+    return en + ' of ' + rule.config.schemes.length + ' schemes active';
+  }
+  if (rule.type === 'compound' && rule.subtype === 'jewels') {
+    return rule.config.acceptedTypes.length + ' types, Coins: ' + (rule.config.coinsAccepted ? 'on' : 'off');
+  }
+  if (rule.name === 'Age of Customer') return rule.config.minAge + '\u2013' + rule.config.maxAge + ' years';
+  if (rule.name === 'Purity') return rule.config.minPurity + '\u2013' + rule.config.maxPurity + ' kt';
+  if (rule.name === 'Loan Date') return 'Future:' + rule.config.futureDate + ', Back:' + rule.config.backDate + ', Present:' + rule.config.presentDate;
+  return rule.enabled ? 'Enabled' : 'Disabled';
+}
+function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+function snapshotBaseline() { baseline = rulesData.map(summarizeRule); }
+function recomputePending() {
+  pendingChanges = [];
+  rulesData.forEach(function(r, idx) {
+    if (r.type === 'db') return;
+    var now = summarizeRule(r);
+    if (now !== baseline[idx]) pendingChanges.push({ index:idx, rule:r.name, oldValue:baseline[idx], newValue:now });
+  });
+  updateSaveButton();
+}
+function updateSaveButton() {
+  var btn = document.getElementById('saveBtn');
+  var hint = document.getElementById('footer-hint');
+  var n = pendingChanges.length;
+  btn.disabled = (n === 0);
+  hint.innerHTML = n === 0 ? 'No pending changes' : '<b>' + n + '</b> change(s) will be submitted as one request';
+}
+function inr(n) { return Number(n).toLocaleString('en-IN'); }
+function badge(en) { return en ? '<span class="ro-status-en">Enabled</span>' : '<span class="ro-status-dis">Disabled</span>'; }
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+/* ================================================================
+   INIT
+================================================================ */
+document.addEventListener('DOMContentLoaded', function() {
+  changeRequests = [...sampleChangeRequests];
+  snapshotBaseline();
+  setRole('maker');
+  updateSearchResults();
+});
+
+function setRole(role) {
+  userRole = role;
+  document.querySelectorAll('.role-switch button').forEach(function(b){ b.classList.toggle('active', b.dataset.role === role); });
+  document.getElementById('role-label').textContent = role === 'maker' ? '| DGL Maker' : '| DGL Checker';
+  document.getElementById('footer-bar').style.display = role === 'maker' ? 'flex' : 'none';
+  loadRulesData();
+  renderChangeRequestTab();
+}
+
+/* ================================================================
+   RULES LIST
+================================================================ */
+function loadRulesData() {
+  var tbody = document.getElementById('rules-tbody');
+  var isChecker = userRole === 'checker';
+  tbody.innerHTML = '';
+
+  rulesData.forEach(function(rule, index) {
+    var row = document.createElement('tr');
+    var statusCell, actionCell;
+
+    if (rule.type === 'db') {
+      row.className = 'db-managed-row';
+      statusCell = '<span class="db-badge">\uD83D\uDD12 View only</span>';
+      actionCell = '<button class="view-btn-rule" onclick="viewRule(' + index + ')">View</button>';
+    } else if (rule.type === 'compound') {
+      var sum = summarizeRule(rule);
+      statusCell = '<span style="font-size:13px;color:#555;">' + sum + '</span>';
+      actionCell = '<button class="edit-btn" onclick="editRule(' + index + ')">' + (isChecker ? 'View' : 'Manage') + '</button>';
+    } else {
+      var onch = isChecker ? '' : 'onchange="toggleRule(' + index + ')"';
+      statusCell =
+        '<label class="toggle-switch"><input type="checkbox" ' + (rule.enabled ? 'checked' : '') + ' ' + (isChecker ? 'disabled' : onch) + '><span class="slider"></span></label>' +
+        '<span class="toggle-status-text ' + (rule.enabled ? 'toggle-status-enabled' : 'toggle-status-disabled') + '">' + (rule.enabled ? 'Enabled' : 'Disabled') + '</span>';
+      if (rule.type === 'drawer') {
+        actionCell = isChecker
+          ? '<button class="view-btn-rule" onclick="viewRule(' + index + ')">View</button>'
+          : '<button class="edit-btn" onclick="editRule(' + index + ')">Configure</button>';
+      } else {
+        actionCell = '<span style="color:#666;font-style:italic;">\u2014</span>';
+      }
+    }
+
+    row.innerHTML = '<td style="font-weight:500;">' + rule.name +
+      (rule.desc ? '<div style="font-size:12px;color:#9aa3b2;margin-top:3px;">' + rule.desc + '</div>' : '') + '</td>' +
+      '<td>' + statusCell + '</td>' +
+      '<td>' + actionCell + '</td>';
+    tbody.appendChild(row);
+  });
+}
+
+/* ================================================================
+   TABS
+================================================================ */
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(function(btn){ btn.classList.remove('active'); btn.setAttribute('aria-selected','false'); });
+  var ab = document.getElementById('tab-' + (tabName === 'rules' ? 'ruleslist' : 'changerequest'));
+  ab.classList.add('active'); ab.setAttribute('aria-selected','true');
+  document.querySelectorAll('[role="tabpanel"]').forEach(function(p){ p.style.display='none'; });
+  document.getElementById((tabName === 'rules' ? 'rules-list' : 'change-request') + '-tab').style.display = 'block';
+}
+function switchChangeRequestTab(tabName) {
+  currentChangeRequestTab = tabName;
+  document.querySelectorAll('.sub-tab-btn').forEach(function(btn){ btn.classList.remove('active'); btn.setAttribute('aria-selected','false'); });
+  var b = document.getElementById('subtab-' + tabName); b.classList.add('active'); b.setAttribute('aria-selected','true');
+  document.querySelectorAll('.change-request-content').forEach(function(c){ c.classList.remove('active'); });
+  document.getElementById(tabName + '-tab').classList.add('active');
+  renderChangeRequestTab();
+}
+
+/* ================================================================
+   CHANGE REQUEST TABLE
+================================================================ */
+function renderChangeRequestTab() {
+  var source = searchFiltered.length > 0 ? searchFiltered : changeRequests;
+  var requests = source.filter(function(r){ return r.status === currentChangeRequestTab; });
+  var tbody = document.getElementById(currentChangeRequestTab + '-tbody');
+  tbody.innerHTML = '';
+  if (requests.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="empty-state-icon">\uD83D\uDCCB</div><div class="empty-state-text">No ' + currentChangeRequestTab + ' requests found</div><div class="empty-state-subtext">Requests will appear here when they match the current status</div></td></tr>';
+    return;
+  }
+  requests.forEach(function(request) {
+    var row = document.createElement('tr');
+    var actionBtn = userRole === 'checker' && request.status === 'initiated'
+      ? '<button class="view-btn" onclick="openCommentModal(\'' + request.id + '\')">Review</button>'
+      : '<span class="status-' + request.status + '">' + cap(request.status) + '</span>';
+    var ruleCol = request.changes.map(function(c){ return '<div class="cr-line">' + c.rule + '</div>'; }).join('');
+    var oldCol  = request.changes.map(function(c){ return '<div class="cr-line old-value">' + c.oldValue + '</div>'; }).join('');
+    var newCol  = request.changes.map(function(c){ return '<div class="cr-line new-value">' + c.newValue + '</div>'; }).join('');
+    var cnt = request.changes.length > 1 ? '<div class="cr-count">' + request.changes.length + ' rules in this request</div>' : '';
+    row.innerHTML =
+      '<td style="font-weight:600;color:#007bff;">' + request.id + cnt + '</td>' +
+      '<td>' + request.makerName + '</td>' +
+      '<td>' + ruleCol + '</td>' +
+      '<td>' + oldCol + '</td>' +
+      '<td>' + newCol + '</td>' +
+      '<td style="max-width:190px;">' + request.makerComment + '</td>' +
+      '<td style="max-width:190px;">' + (request.checkerComment || '\u2014') + '</td>' +
+      '<td style="font-size:13px;color:#666;">' + request.timestamp + '</td>' +
+      '<td>' + actionBtn + '</td>';
+    tbody.appendChild(row);
+  });
+}
+
+/* ================================================================
+   SEARCH
+================================================================ */
+function performSearch() {
+  var term = document.getElementById('search-input').value.toLowerCase().trim();
+  searchFiltered = term === '' ? [] : changeRequests.filter(function(r){
+    return r.id.toLowerCase().includes(term) ||
+      r.makerName.toLowerCase().includes(term) ||
+      r.changes.some(function(c){ return c.rule.toLowerCase().includes(term); }) ||
+      (r.checkerComment && r.checkerComment.toLowerCase().includes(term));
+  });
+  renderChangeRequestTab();
+}
+function resetSearch() { document.getElementById('search-input').value=''; searchFiltered=[]; renderChangeRequestTab(); }
+function updateSearchResults() {
+  document.getElementById('search-input').addEventListener('input', function(){ setTimeout(performSearch,250); });
+}
+
+/* ================================================================
+   CHECKER ACTIONS
+================================================================ */
+function openCommentModal(requestId) {
+  currentRequestId = requestId;
+  var cr = changeRequests.find(function(r){ return r.id === requestId; });
+  var rc = document.getElementById('review-changes');
+  if (cr) {
+    var rows = cr.changes.map(function(c){
+      return '<tr><td style="font-weight:600;color:#233066;">' + c.rule + '</td><td class="old-value">' + c.oldValue + '</td><td style="color:#999;">\u2192</td><td class="new-value">' + c.newValue + '</td></tr>';
+    }).join('');
+    rc.innerHTML =
+      '<div class="rc-title">' + cr.id + ' \u00b7 ' + cr.changes.length + ' rule change(s) by ' + cr.makerName + '</div>' +
+      '<table>' + rows + '</table>' +
+      '<div class="review-maker-cmt" style="margin-top:12px;"><div class="lbl">Maker comment</div>' + cr.makerComment + '</div>';
+  }
+  document.getElementById('comment-modal').style.display = 'flex';
+  document.getElementById('checker-comment').value = '';
+  document.getElementById('checker-comment').focus();
+}
+function closeCommentModal() { document.getElementById('comment-modal').style.display='none'; currentRequestId=null; }
+function approveRequest() {
+  var c = document.getElementById('checker-comment').value.trim();
+  if (!c) { alert('Please add a comment before approving.'); return; }
+  updateRequestStatus(currentRequestId,'approved',c); closeCommentModal();
+}
+function rejectRequest() {
+  var c = document.getElementById('checker-comment').value.trim();
+  if (!c) { alert('Comment is required for rejection.'); return; }
+  updateRequestStatus(currentRequestId,'rejected',c); closeCommentModal();
+}
+function updateRequestStatus(requestId, newStatus, checkerComment) {
+  var i = changeRequests.findIndex(function(r){ return r.id === requestId; });
+  if (i !== -1) {
+    changeRequests[i].status = newStatus;
+    changeRequests[i].checkerComment = checkerComment;
+    changeRequests[i].timestamp = new Date().toISOString().slice(0,19).replace('T',' ');
+    renderChangeRequestTab();
+    alert('Request ' + requestId + ' has been ' + newStatus + ' successfully.');
+  }
+}
+
+/* ================================================================
+   MAKER STAGING
+================================================================ */
+function toggleRule(index) {
+  rulesData[index].enabled = !rulesData[index].enabled;
+  recomputePending(); loadRulesData();
+}
+function editRule(index) {
+  currentEditingRuleIndex = index;
+  var rule = rulesData[index];
+  if (rule.type === 'compound') { openCompoundDrawer(rule, index, userRole === 'checker'); }
+  else { openDrawer(rule, index, false); }
+}
+function viewRule(index) {
+  currentEditingRuleIndex = index;
+  var rule = rulesData[index];
+  if (rule.type === 'compound') { openCompoundDrawer(rule, index, true); }
+  else { openDrawer(rule, index, true); }
+}
+
+/* ================================================================
+   SAVE FLOW
+================================================================ */
+function openSaveModal() {
+  if (!pendingChanges.length) return;
+  var summary = '<div class="rc-title">' + pendingChanges.length + ' change(s) in this request</div><table>' +
+    pendingChanges.map(function(c){
+      return '<tr><td style="font-weight:600;color:#233066;">' + c.rule + '</td><td class="old-value">' + c.oldValue + '</td><td style="color:#999;">\u2192</td><td class="new-value">' + c.newValue + '</td></tr>';
+    }).join('') + '</table>';
+  document.getElementById('submit-summary').innerHTML = summary;
+  document.getElementById('main-modal').style.display = 'flex';
+  document.getElementById('modal-comment').value = '';
+  document.getElementById('modal-comment').focus();
+}
+function closeModal() { document.getElementById('main-modal').style.display='none'; }
+function confirmSave() {
+  var comment = document.getElementById('modal-comment').value.trim();
+  if (!comment) { alert('Comments are mandatory.'); return; }
+  var id = 'CR' + String(Date.now()).slice(-6);
+  changeRequests.unshift({
+    id:id, makerName:currentUser, status:'initiated',
+    timestamp: new Date().toISOString().slice(0,19).replace('T',' '),
+    makerComment:comment, checkerComment:'',
+    changes: pendingChanges.map(function(c){ return { rule:c.rule, oldValue:c.oldValue, newValue:c.newValue }; })
+  });
+  snapshotBaseline(); recomputePending(); closeModal();
+  alert('Request ' + id + ' submitted with ' + changeRequests[0].changes.length + ' rule change(s).');
+  switchTab('changerequest'); switchChangeRequestTab('initiated');
+}
+
+/* ================================================================
+   SIMPLE DRAWER (toggle + basic drawer rules)
+================================================================ */
+function openDrawer(rule, index, readOnly) {
+  var content = document.getElementById('drawer-content');
+  document.getElementById('drawerTitle').textContent = readOnly ? 'View Configuration' : 'Edit Configuration';
+  var heading = readOnly ? (rule.name + (rule.type === 'db' ? ' \u00b7 View only' : '')) : ('Configure ' + rule.name);
+  content.innerHTML = '<h3 style="margin-top:0;">' + heading + '</h3>' +
+    (readOnly ? generateReadOnlyFields(rule, index)
+              : '<div style="margin-bottom:20px;"><label style="display:block;margin-bottom:8px;font-weight:500;">Configuration Parameters:</label>' + generateConfigFields(rule.config, index) + '</div>');
+  document.querySelector('.drawer-actions .save').style.display = readOnly ? 'none' : 'inline-block';
+  document.querySelector('.drawer-actions .cancel').textContent = readOnly ? 'Close' : 'Cancel';
+  document.getElementById('edit-drawer-bg').style.display = 'flex';
+}
+function closeDrawer() { document.getElementById('edit-drawer-bg').style.display='none'; }
+
+function generateConfigFields(config, ruleIndex) {
+  var rule = rulesData[ruleIndex];
+  if (rule.name === 'Age of Customer') {
+    return '<div style="margin-bottom:16px;"><label style="display:block;margin-bottom:4px;font-size:14px;">Minimum Age (18\u201325):</label>' +
+      '<input type="number" id="config-' + ruleIndex + '-minAge" value="' + config.minAge + '" min="18" max="25" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>' +
+      '<div style="margin-bottom:16px;"><label style="display:block;margin-bottom:4px;font-size:14px;">Maximum Age (65\u2013100):</label>' +
+      '<input type="number" id="config-' + ruleIndex + '-maxAge" value="' + config.maxAge + '" min="65" max="100" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
+  }
+  if (rule.name === 'Purity') {
+    return '<div style="margin-bottom:16px;"><label style="display:block;margin-bottom:4px;font-size:14px;">Minimum Purity (18\u201322 kt, 0.5 steps):</label>' +
+      '<input type="number" id="config-' + ruleIndex + '-minPurity" value="' + config.minPurity + '" min="18" max="22" step="0.5" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>' +
+      '<div style="margin-bottom:16px;"><label style="display:block;margin-bottom:4px;font-size:14px;">Maximum Purity (18\u201322 kt, 0.5 steps):</label>' +
+      '<input type="number" id="config-' + ruleIndex + '-maxPurity" value="' + config.maxPurity + '" min="18" max="22" step="0.5" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>';
+  }
+  if (rule.name === 'Loan Date') {
+    var keys = ['futureDate','backDate','presentDate'];
+    var labels = { futureDate:'Future Date', backDate:'Back Date', presentDate:'Present Date' };
+    var out = '<div style="margin-bottom:16px;">';
+    keys.forEach(function(k) {
+      out += '<div style="margin-bottom:14px;padding:12px;border:1px solid #e0e0e0;border-radius:4px;">' +
+        '<label style="display:block;margin-bottom:8px;font-weight:500;">' + labels[k] + ':</label>' +
+        '<div style="display:flex;gap:16px;">' +
+        '<label style="display:flex;align-items:center;gap:6px;"><input type="radio" name="' + k + '-' + ruleIndex + '" value="accept" ' + (config[k]==='accept'?'checked':'') + '> Accept</label>' +
+        '<label style="display:flex;align-items:center;gap:6px;"><input type="radio" name="' + k + '-' + ruleIndex + '" value="reject" ' + (config[k]==='reject'?'checked':'') + '> Reject</label>' +
+        '</div></div>';
+    });
+    return out + '</div>';
+  }
+  return '<p style="color:#666;font-style:italic;">No editable parameters.</p>';
+}
+
+function saveDrawerEdit() {
+  var ruleIndex = currentEditingRuleIndex;
+  var rule = rulesData[ruleIndex];
+  if (rule.name === 'Age of Customer') {
+    var min = parseInt(document.getElementById('config-' + ruleIndex + '-minAge').value,10);
+    var max = parseInt(document.getElementById('config-' + ruleIndex + '-maxAge').value,10);
+    if (isNaN(min)||isNaN(max)) { alert('Enter valid ages.'); return; }
+    if (min<18||min>25) { alert('Minimum age must be 18\u201325.'); return; }
+    if (max<65||max>100) { alert('Maximum age must be 65\u2013100.'); return; }
+    if (min>=max) { alert('Min must be less than max.'); return; }
+    rule.config = { minAge:min, maxAge:max };
+  } else if (rule.name === 'Purity') {
+    var mn = parseFloat(document.getElementById('config-' + ruleIndex + '-minPurity').value);
+    var mx = parseFloat(document.getElementById('config-' + ruleIndex + '-maxPurity').value);
+    if (isNaN(mn)||isNaN(mx)) { alert('Enter valid purity values.'); return; }
+    mn = Math.round(mn*2)/2; mx = Math.round(mx*2)/2;
+    if (mn<18||mx>22) { alert('Purity must be within 18\u201322 kt.'); return; }
+    if (mn>=mx) { alert('Min must be less than max.'); return; }
+    rule.config = { minPurity:mn, maxPurity:mx };
+  } else if (rule.name === 'Loan Date') {
+    var g = function(k){ var el=document.querySelector('input[name="'+k+'-'+ruleIndex+'"]:checked'); return el?el.value:rule.config[k]; };
+    rule.config = { futureDate:g('futureDate'), backDate:g('backDate'), presentDate:g('presentDate') };
+  }
+  closeDrawer(); recomputePending(); loadRulesData();
+}
+
+/* ================================================================
+   READ-ONLY FIELDS (db rules viewed)
+================================================================ */
+function generateReadOnlyFields(rule, i) {
+  var c = rule.config || {};
+  var search = function(ph){ return '<input class="db-search" id="db-search-' + i + '" placeholder="' + ph + '" onkeyup="dbViewSearch(' + i + ')">'; };
+  if (rule.name === 'Active Branch') {
+    return '<div class="ro-block"><div class="ro-head">Branches <span class="ro-count">(' + c.branches.length + ')</span></div>' + search('Search by SOL ID, branch or locality') +
+      '<table class="ro-table"><thead><tr><th>SOL ID</th><th>Branch</th><th>Locality</th><th>Status</th></tr></thead><tbody id="db-list-' + i + '">' +
+      c.branches.map(function(b){ return '<tr class="db-row"><td>' + b.solId + '</td><td>' + b.name + '</td><td>' + b.locality + '</td><td>' + badge(b.enabled) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>';
+  }
+  if (rule.name === 'Per Gram Rate') {
+    return '<div class="ro-block"><div class="ro-head">Per gram rate by scheme</div><div class="ro-note">Auto-updated daily from IBJA.</div>' + search('Search scheme') +
+      '<table class="ro-table"><thead><tr><th>Scheme</th><th>Rate</th></tr></thead><tbody id="db-list-' + i + '">' +
+      Object.entries(c.schemes).map(function(e){ return '<tr class="db-row"><td>' + e[0] + '</td><td>\u20B9' + inr(e[1]) + ' / g</td></tr>'; }).join('') +
+      '</tbody></table></div>';
+  }
+  if (rule.name === 'Age of Customer') {
+    return '<div class="ro-block"><div class="ro-kv"><span class="k">Minimum age</span><span class="v">' + c.minAge + ' yrs</span></div>' +
+      '<div class="ro-kv"><span class="k">Maximum age</span><span class="v">' + c.maxAge + ' yrs</span></div></div>';
+  }
+  if (rule.name === 'Purity') {
+    return '<div class="ro-block"><div class="ro-kv"><span class="k">Minimum purity</span><span class="v">' + c.minPurity + ' kt</span></div>' +
+      '<div class="ro-kv"><span class="k">Maximum purity</span><span class="v">' + c.maxPurity + ' kt</span></div></div>';
+  }
+  if (rule.name === 'Loan Date') {
+    return '<div class="ro-block"><div class="ro-kv"><span class="k">Future date</span><span class="v">' + cap(c.futureDate) + '</span></div>' +
+      '<div class="ro-kv"><span class="k">Back date</span><span class="v">' + cap(c.backDate) + '</span></div>' +
+      '<div class="ro-kv"><span class="k">Present date</span><span class="v">' + cap(c.presentDate) + '</span></div></div>';
+  }
+  return '<p style="color:#666;">No additional configuration.</p>';
+}
+
+function dbViewSearch(i) {
+  var q = document.getElementById('db-search-'+i).value.toLowerCase();
+  var list = document.getElementById('db-list-'+i); if (!list) return;
+  var anyVisible = false;
+  list.querySelectorAll('.db-row').forEach(function(r){ var m=r.textContent.toLowerCase().includes(q); r.style.display=m?'':'none'; if(m) anyVisible=true; });
+  var empty = document.getElementById('db-empty-'+i);
+  if (!anyVisible) { if (!empty){ empty=document.createElement('div'); empty.id='db-empty-'+i; empty.className='db-empty'; empty.textContent='No matches found'; list.parentNode.appendChild(empty); } }
+  else if (empty) { empty.remove(); }
+}
+
+/* ================================================================
+   COMPOUND DRAWER — Scheme & Loan Parameters
+================================================================ */
+var schemesCopy = [];      // working copy of schemes while drawer is open
+var activeSchemeIdx = 0;   // which scheme tab is selected
+
+function openCompoundDrawer(rule, index, readOnly) {
+  currentEditingRuleIndex = index;
+  if (rule.subtype === 'schemes') { openSchemeDrawer(rule, index, readOnly); }
+  else if (rule.subtype === 'jewels') { openJewelDrawer(rule, index, readOnly); }
+}
+
+/* ---------- SCHEME DRAWER ---------- */
+function openSchemeDrawer(rule, index, readOnly) {
+  schemesCopy = deepCopy(rule.config.schemes);
+  activeSchemeIdx = 0;
+  document.getElementById('drawerTitle').textContent = readOnly ? 'View — Scheme & Loan Parameters' : 'Manage — Scheme & Loan Parameters';
+  renderSchemeDrawer(index, readOnly);
+  document.querySelector('.drawer-actions .save').style.display = readOnly ? 'none' : 'inline-block';
+  document.querySelector('.drawer-actions .cancel').textContent = readOnly ? 'Close' : 'Cancel';
+  document.getElementById('edit-drawer-bg').style.display = 'flex';
+}
+
+function renderSchemeDrawer(index, readOnly) {
+  var ro = readOnly || userRole === 'checker';
+  var tabs = schemesCopy.map(function(s, i) {
+    return '<button onclick="selectSchemeTab(' + i + ',' + index + ',' + ro + ')" style="padding:7px 14px;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:600;' +
+      (i === activeSchemeIdx ? 'background:#FF9800;color:#fff;' : 'background:#eef1f6;color:#555;') + '">' +
+      s.name.replace('Gold Loan ','') + (s.enabled ? '' : ' <span style="font-size:10px;opacity:.7;">(off)</span>') + '</button>';
+  }).join('');
+
+  var addBtn = ro ? '' : '<button onclick="addScheme(' + index + ',' + ro + ')" style="padding:7px 14px;background:#fff;border:1.5px dashed #aaa;border-radius:6px;font-size:12px;color:#555;cursor:pointer;margin-left:4px;">+ Add Scheme</button>';
+
+  var s = schemesCopy[activeSchemeIdx];
+  var tenureChips = s.tenures.map(function(t, ti) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f8f9fa;border:1px solid #ddd;border-radius:14px;font-size:12px;margin:2px;">' + t + ' mo' +
+      (ro ? '' : ' <button onclick="removeTenure(' + activeSchemeIdx + ',' + ti + ',' + index + ',' + ro + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:14px;line-height:1;padding:0;">&times;</button>') +
+      '</span>';
+  }).join('');
+
+  var addTenure = ro ? '' :
+    '<div style="display:flex;gap:6px;align-items:center;margin-top:8px;">' +
+    '<input type="number" id="new-tenure-input" placeholder="Months" min="1" max="60" style="width:90px;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;">' +
+    '<button onclick="addTenure(' + activeSchemeIdx + ',' + index + ',' + ro + ')" style="padding:6px 12px;background:#28a745;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Add</button></div>';
+
+  var statusRow = ro ? '' :
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
+    '<label style="font-weight:600;font-size:13px;color:#333;">Status</label>' +
+    '<label class="toggle-switch"><input type="checkbox" id="scheme-enabled" ' + (s.enabled ? 'checked' : '') + ' onchange="updateSchemeField(' + activeSchemeIdx + ',\'enabled\',this.checked,' + index + ',' + ro + ')"><span class="slider"></span></label>' +
+    '<span style="font-size:13px;color:' + (s.enabled ? '#FF9800' : '#666') + ';font-weight:600;">' + (s.enabled ? 'Active' : 'Inactive') + '</span></div>';
+
+  var codeRow = '<div class="ro-kv"><span class="k">Scheme Code</span><span class="v">' + s.code + '</span></div>';
+
+  var nameRow = '<div class="ro-kv"><span class="k">Scheme Name</span><span class="v">' + s.name + '</span></div>';
+
+  var ltvRow = ro
+    ? '<div class="ro-kv"><span class="k">LTV %</span><span class="v">' + s.ltv + '%</span></div>'
+    : '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">LTV % (50\u201390)</label>' +
+      '<input type="number" min="50" max="90" value="' + s.ltv + '" onchange="updateSchemeField(' + activeSchemeIdx + ',\'ltv\',+this.value,' + index + ',' + ro + ')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;font-size:13px;"></div>';
+
+  var amtRow = ro
+    ? '<div class="ro-kv"><span class="k">Loan Amount</span><span class="v">\u20B9' + inr(s.minAmt) + ' \u2013 \u20B9' + inr(s.maxAmt) + '</span></div>'
+    : '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Loan Amount (\u20B9)</label>' +
+      '<div style="display:flex;gap:8px;">' +
+      '<input type="number" placeholder="Min" value="' + s.minAmt + '" onchange="updateSchemeField(' + activeSchemeIdx + ',\'minAmt\',+this.value,' + index + ',' + ro + ')" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:4px;font-size:13px;">' +
+      '<input type="number" placeholder="Max" value="' + s.maxAmt + '" onchange="updateSchemeField(' + activeSchemeIdx + ',\'maxAmt\',+this.value,' + index + ',' + ro + ')" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:4px;font-size:13px;"></div></div>';
+
+  var intRow = ro
+    ? '<div class="ro-kv"><span class="k">Interest Rate</span><span class="v">' + s.interestRate + '%</span></div>'
+    : '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Interest Rate % (max 20)</label>' +
+      '<input type="number" min="0" max="20" step="0.1" value="' + s.interestRate + '" onchange="updateSchemeField(' + activeSchemeIdx + ',\'interestRate\',+this.value,' + index + ',' + ro + ')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;font-size:13px;"></div>';
+
+  var penRow = ro
+    ? '<div class="ro-kv"><span class="k">Penal Charge</span><span class="v">' + s.penalCharge + '%</span></div>'
+    : '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Penal Charge %</label>' +
+      '<input type="number" min="0" max="10" step="0.1" value="' + s.penalCharge + '" onchange="updateSchemeField(' + activeSchemeIdx + ',\'penalCharge\',+this.value,' + index + ',' + ro + ')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;font-size:13px;"></div>';
+
+  var deleteBtn = (ro || schemesCopy.length <= 1) ? '' :
+    '<button onclick="deleteScheme(' + activeSchemeIdx + ',' + index + ',' + ro + ')" style="margin-top:8px;padding:7px 16px;background:#fff;border:1px solid #dc3545;color:#dc3545;border-radius:5px;font-size:13px;cursor:pointer;">Delete this scheme</button>';
+
+  document.getElementById('drawer-content').innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">' + tabs + addBtn + '</div>' +
+    '<div style="border:1px solid #eee;border-radius:8px;padding:16px;background:#fff;">' +
+    statusRow + codeRow + nameRow + ltvRow + amtRow +
+    '<div style="margin-bottom:8px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Tenures (months)</label>' +
+    '<div>' + tenureChips + '</div>' + addTenure + '</div>' +
+    intRow + penRow + deleteBtn + '</div>';
+}
+
+function selectSchemeTab(i, ruleIndex, ro) { activeSchemeIdx = i; renderSchemeDrawer(ruleIndex, ro); }
+
+function updateSchemeField(si, field, val, ruleIndex, ro) {
+  schemesCopy[si][field] = val;
+  if (field === 'enabled') renderSchemeDrawer(ruleIndex, ro);
+}
+
+function addTenure(si, ruleIndex, ro) {
+  var input = document.getElementById('new-tenure-input');
+  var t = parseInt(input.value, 10);
+  if (!t || t < 1 || t > 60) { alert('Enter a valid tenure between 1 and 60 months.'); return; }
+  if (schemesCopy[si].tenures.includes(t)) { alert('Tenure already exists.'); return; }
+  schemesCopy[si].tenures.push(t);
+  schemesCopy[si].tenures.sort(function(a,b){ return a-b; });
+  renderSchemeDrawer(ruleIndex, ro);
+}
+
+function removeTenure(si, ti, ruleIndex, ro) {
+  if (schemesCopy[si].tenures.length <= 1) { alert('Each scheme must have at least one tenure.'); return; }
+  schemesCopy[si].tenures.splice(ti, 1);
+  renderSchemeDrawer(ruleIndex, ro);
+}
+
+function addScheme(ruleIndex, ro) {
+  var newCode = 'GL' + String(Date.now()).slice(-4);
+  schemesCopy.push({ code:newCode, name:'New Scheme', enabled:true, ltv:70, tenures:[12], minAmt:5000, maxAmt:500000, interestRate:12, penalCharge:2 });
+  activeSchemeIdx = schemesCopy.length - 1;
+  renderSchemeDrawer(ruleIndex, ro);
+}
+
+function deleteScheme(si, ruleIndex, ro) {
+  if (schemesCopy.length <= 1) { alert('At least one scheme must remain.'); return; }
+  if (!confirm('Delete scheme "' + schemesCopy[si].name + '"?')) return;
+  schemesCopy.splice(si, 1);
+  activeSchemeIdx = Math.max(0, si - 1);
+  renderSchemeDrawer(ruleIndex, ro);
+}
+
+function saveDrawerEdit() {
+  var ruleIndex = currentEditingRuleIndex;
+  var rule = rulesData[ruleIndex];
+  if (rule.type === 'compound' && rule.subtype === 'schemes') {
+    // Validate
+    for (var i = 0; i < schemesCopy.length; i++) {
+      var s = schemesCopy[i];
+      if (!s.code.trim() || !s.name.trim()) { alert('Scheme code and name cannot be empty.'); return; }
+      if (s.ltv < 50 || s.ltv > 90) { alert('LTV for "' + s.name + '" must be 50\u201390%.'); return; }
+      if (s.minAmt >= s.maxAmt) { alert('Min amount must be less than max for "' + s.name + '".'); return; }
+      if (s.interestRate > 20) { alert('Interest rate for "' + s.name + '" cannot exceed 20%.'); return; }
+      if (s.tenures.length === 0) { alert('"' + s.name + '" must have at least one tenure.'); return; }
+    }
+    rule.config.schemes = deepCopy(schemesCopy);
+    closeDrawer(); recomputePending(); loadRulesData();
+  } else if (rule.type === 'compound' && rule.subtype === 'jewels') {
+    saveJewelDrawer(ruleIndex);
+  } else {
+    saveSimpleDrawer(ruleIndex);
+  }
+}
+
+function saveSimpleDrawer(ruleIndex) {
+  var rule = rulesData[ruleIndex];
+  if (rule.name === 'Age of Customer') {
+    var min = parseInt(document.getElementById('config-' + ruleIndex + '-minAge').value,10);
+    var max = parseInt(document.getElementById('config-' + ruleIndex + '-maxAge').value,10);
+    if (isNaN(min)||isNaN(max)) { alert('Enter valid ages.'); return; }
+    if (min<18||min>25) { alert('Minimum age must be 18\u201325.'); return; }
+    if (max<65||max>100) { alert('Maximum age must be 65\u2013100.'); return; }
+    if (min>=max) { alert('Min must be less than max.'); return; }
+    rule.config = { minAge:min, maxAge:max };
+  } else if (rule.name === 'Purity') {
+    var mn = parseFloat(document.getElementById('config-' + ruleIndex + '-minPurity').value);
+    var mx = parseFloat(document.getElementById('config-' + ruleIndex + '-maxPurity').value);
+    if (isNaN(mn)||isNaN(mx)) { alert('Enter valid purity values.'); return; }
+    mn=Math.round(mn*2)/2; mx=Math.round(mx*2)/2;
+    if (mn<18||mx>22) { alert('Purity must be within 18\u201322 kt.'); return; }
+    if (mn>=mx) { alert('Min must be less than max.'); return; }
+    rule.config = { minPurity:mn, maxPurity:mx };
+  } else if (rule.name === 'Loan Date') {
+    var g = function(k){ var el=document.querySelector('input[name="'+k+'-'+ruleIndex+'"]:checked'); return el?el.value:rule.config[k]; };
+    rule.config = { futureDate:g('futureDate'), backDate:g('backDate'), presentDate:g('presentDate') };
+  }
+  closeDrawer(); recomputePending(); loadRulesData();
+}
+
+/* ---------- JEWEL DRAWER ---------- */
+var jewelCopy = [];
+var coinsCopy = false;
+
+function openJewelDrawer(rule, index, readOnly) {
+  jewelCopy = [...rule.config.acceptedTypes];
+  coinsCopy = rule.config.coinsAccepted;
+  var ro = readOnly || userRole === 'checker';
+  document.getElementById('drawerTitle').textContent = ro ? 'View — Jewel & Coin Parameters' : 'Manage — Jewel & Coin Parameters';
+  renderJewelDrawer(index, ro);
+  document.querySelector('.drawer-actions .save').style.display = ro ? 'none' : 'inline-block';
+  document.querySelector('.drawer-actions .cancel').textContent = ro ? 'Close' : 'Cancel';
+  document.getElementById('edit-drawer-bg').style.display = 'flex';
+}
+
+function renderJewelDrawer(index, ro) {
+  var coinsRow =
+    '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #eee;margin-bottom:16px;">' +
+    '<span style="font-weight:600;font-size:14px;flex:1;">Coins (coin-backed loans)</span>' +
+    '<label class="toggle-switch"><input type="checkbox" id="coins-toggle" ' + (coinsCopy ? 'checked' : '') + (ro ? ' disabled' : ' onchange="updateCoins(this.checked,' + index + ',' + ro + ')"') + '><span class="slider"></span></label>' +
+    '<span style="font-size:13px;font-weight:600;color:' + (coinsCopy ? '#FF9800' : '#666') + ';">' + (coinsCopy ? 'Accepted' : 'Not accepted') + '</span></div>';
+
+  var chips = jewelCopy.map(function(t, ti) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;background:#f8f9fa;border:1px solid #ddd;border-radius:16px;font-size:13px;margin:3px;">' + t +
+      (ro ? '' : ' <button onclick="removeJewelType(' + ti + ',' + index + ',' + ro + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:15px;line-height:1;padding:0;">&times;</button>') +
+      '</span>';
+  }).join('');
+
+  var addRow = ro ? '' :
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">' +
+    '<input type="text" id="new-jewel-input" placeholder="e.g. Pearl" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">' +
+    '<button onclick="addJewelType(' + index + ',' + ro + ')" style="padding:8px 14px;background:#28a745;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;">Add</button></div>';
+
+  document.getElementById('drawer-content').innerHTML =
+    '<h3 style="margin-top:0;">Jewel &amp; Coin Parameters</h3>' + coinsRow +
+    '<div style="font-weight:600;font-size:14px;margin-bottom:10px;">Accepted Jewel Types <span style="color:#999;font-weight:400;font-size:12px;">(' + jewelCopy.length + ')</span></div>' +
+    '<div>' + chips + '</div>' + addRow;
+}
+
+function updateCoins(val, ruleIndex, ro) {
+  coinsCopy = val;
+  renderJewelDrawer(ruleIndex, ro);
+}
+
+function addJewelType(ruleIndex, ro) {
+  var val = document.getElementById('new-jewel-input').value.trim();
+  if (!val) { alert('Enter a jewel type name.'); return; }
+  if (jewelCopy.some(function(t){ return t.toLowerCase()===val.toLowerCase(); })) { alert('Already exists.'); return; }
+  jewelCopy.push(val);
+  renderJewelDrawer(ruleIndex, ro);
+}
+
+function removeJewelType(ti, ruleIndex, ro) {
+  jewelCopy.splice(ti, 1);
+  renderJewelDrawer(ruleIndex, ro);
+}
+
+function saveJewelDrawer(ruleIndex) {
+  rulesData[ruleIndex].config.acceptedTypes = [...jewelCopy];
+  rulesData[ruleIndex].config.coinsAccepted = coinsCopy;
+  closeDrawer(); recomputePending(); loadRulesData();
+}
+
+/* ================================================================
+   KEYBOARD & OUTSIDE-CLICK
+================================================================ */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (document.getElementById('comment-modal').style.display==='flex') closeCommentModal();
+    else if (document.getElementById('main-modal').style.display==='flex') closeModal();
+    else if (document.getElementById('edit-drawer-bg').style.display==='flex') closeDrawer();
+  }
+});
+document.getElementById('comment-modal').addEventListener('click', function(e){ if(e.target===this) closeCommentModal(); });
+document.getElementById('main-modal').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+document.getElementById('edit-drawer-bg').addEventListener('click', function(e){ if(e.target===this) closeDrawer(); });
+
+  </script>
+</body>
+</html>
